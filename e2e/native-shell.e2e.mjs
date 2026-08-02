@@ -60,8 +60,10 @@ describe("Tüfekci Paperworks native shell", () => {
 
     await browser.$('[role="tab"][aria-label="Organise Pages"]').click();
 
-    const size = await browser.getWindowSize();
-    viewport = { height: size.height, width: size.width };
+    viewport = await browser.execute(() => ({
+      height: window.innerHeight,
+      width: window.innerWidth
+    }));
     assert.ok(
       viewport.width >= 960,
       `The native window width was ${viewport.width}px; expected at least 960px.`

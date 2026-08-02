@@ -60,6 +60,9 @@ test("pins the native desktop evidence viewport across hosted runners", async ()
   ]);
 
   assert.match(nativeSpec, /browser\.setWindowSize\(1_280, 820\)/u);
+  assert.match(nativeSpec, /height: window\.innerHeight/u);
+  assert.match(nativeSpec, /width: window\.innerWidth/u);
+  assert.doesNotMatch(nativeSpec, /browser\.getWindowSize/u);
   assert.match(nativeSpec, /native window width was/u);
   assert.match(ciWorkflow, /-screen 0 1280x900x24/u);
   assert.match(releaseWorkflow, /-screen 0 1280x900x24/u);
