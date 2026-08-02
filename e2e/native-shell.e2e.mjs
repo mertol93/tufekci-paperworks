@@ -463,15 +463,25 @@ describe("Tüfekci Paperworks native shell", () => {
       timeout: 60_000,
       timeoutMsg: "The selected PDF page did not render non-blank canvas pixels."
     });
+    await waitForPageRenderCompletion();
 
     await (await browser.$('[aria-label="Search document"]')).click();
     const search = await browser.$('[aria-label="Search text in document"]');
     await search.waitForDisplayed();
     await search.setValue("Business card");
-    await browser.waitUntil(
-      async () => /2 matches on 2 pages/u.test(await browser.$(".search-status").getText()),
-      { timeout: 60_000, timeoutMsg: "PDF text search did not find the duplicated source page." }
-    );
+    await browser.waitUntil(async () => (await search.getValue()) === "Business card", {
+      timeoutMsg: "The PDF search field did not retain the requested query."
+    });
+    const status = await browser.$(".search-status");
+    try {
+      await browser.waitUntil(async () => /2 matches on 2 pages/u.test(await status.getText()), {
+        timeout: 60_000
+      });
+    } catch {
+      throw new Error(
+        `PDF text search did not find the duplicated source page. Final status: ${JSON.stringify(await status.getText())}.`
+      );
+    }
     recordCase("pdf-search-and-rendering");
   });
 
@@ -1423,6 +1433,15 @@ async function renderedPageSample() {
       }
     }
     return { height: canvas.height, inkSamples, width: canvas.width };
+  });
+}
+
+async function waitForPageRenderCompletion() {
+  const renderState = await browser.$(".pdf-canvas-container.is-page .pdf-render-state");
+  await renderState.waitForExist({
+    reverse: true,
+    timeout: 60_000,
+    timeoutMsg: "The selected PDF page did not finish its canvas and text-layer rendering."
   });
 }
 

@@ -1111,7 +1111,6 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn inspects_nested_unicode_bookmarks_and_styles() {
@@ -1679,15 +1678,9 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "tufekci-paperworks-bookmark-test-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir(&path).unwrap();
+            let path = crate::test_support::create_unique_test_directory(
+                "tufekci-paperworks-bookmark-test",
+            );
             Self { path }
         }
     }

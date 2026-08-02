@@ -824,9 +824,7 @@ fn is_link_or_reparse(metadata: &fs::Metadata) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static NEXT_TEST_DIRECTORY: AtomicU64 = AtomicU64::new(1);
+    use crate::test_support::create_unique_test_directory;
 
     #[test]
     fn skips_a_live_locked_lease_then_cleans_it_on_drop() {
@@ -1089,12 +1087,7 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let nonce = NEXT_TEST_DIRECTORY.fetch_add(1, Ordering::Relaxed);
-            let path = std::env::temp_dir().join(format!(
-                "tufekci-paperworks-temporary-cleanup-test-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir_all(&path).unwrap();
+            let path = create_unique_test_directory("tufekci-paperworks-temporary-cleanup-test");
             Self { path }
         }
 

@@ -1869,15 +1869,7 @@ trailing message"#
 
     impl LiveTestDirectory {
         fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = env::temp_dir().join(format!(
-                "paperworks-pdfa-live-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir(&path).unwrap();
+            let path = crate::test_support::create_unique_test_directory("paperworks-pdfa-live");
             Self { path }
         }
     }

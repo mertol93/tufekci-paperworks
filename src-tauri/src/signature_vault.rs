@@ -1027,12 +1027,9 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let path = std::env::temp_dir().join(format!(
-                "tufekci-paperworks-signature-vault-test-{}-{}",
-                std::process::id(),
-                timestamp_ms()
-            ));
-            fs::create_dir(&path).unwrap();
+            let path = crate::test_support::create_unique_test_directory(
+                "tufekci-paperworks-signature-vault-test",
+            );
             Self { path }
         }
     }

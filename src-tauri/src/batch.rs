@@ -1308,11 +1308,10 @@ impl BatchWorkspace {
 mod tests {
     use super::*;
     use crate::scan_export::{create_scan_pdf, test_scan_pdf_request};
+    use crate::test_support::create_unique_test_directory;
     use lopdf::{dictionary, Document, Object, Stream};
-    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
-
-    static NEXT_TEST_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
     #[test]
     fn batch_source_review_retains_ordered_successes_and_content_free_failures() {
@@ -2059,16 +2058,7 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let sequence = NEXT_TEST_DIRECTORY.fetch_add(1, Ordering::Relaxed);
-            let path = std::env::temp_dir().join(format!(
-                "tufekci-paperworks-batch-test-{}-{nonce}-{sequence}",
-                std::process::id()
-            ));
-            fs::create_dir(&path).unwrap();
+            let path = create_unique_test_directory("tufekci-paperworks-batch-test");
             Self { path }
         }
     }

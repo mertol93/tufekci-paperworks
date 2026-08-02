@@ -784,6 +784,12 @@ The project follows [Semantic Versioning](https://semver.org/).
 - The process-tree cancellation regression now samples a stable optional heartbeat after
   termination. This preserves descendant-leak detection while accepting the valid empty
   test file left when macOS interrupts the heartbeat's truncate-and-write operation.
+- Parallel Rust tests now allocate private temporary directories through one atomic,
+  collision-resistant helper. This removes timestamp-resolution races observed on hosted
+  macOS runners without weakening per-test clean-up or document isolation.
+- Native search evidence now waits for the visible PDF canvas and text layer to finish
+  before starting document-wide extraction. This avoids overlapping PDF.js text streams
+  in WKWebView and retains the final localised search state when a hosted assertion fails.
 - Native PDF workspaces now keep their clear-job callback stable while inspection and
   publication snapshots change, preventing source-bound dialogs from closing during a
   review. The bookmark workspace also gives expanded printed-contents controls

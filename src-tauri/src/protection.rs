@@ -774,7 +774,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
-    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+    use std::time::{Duration, Instant};
 
     #[test]
     fn rejects_line_breaks_in_passwords() {
@@ -1040,15 +1040,9 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "tufekci-paperworks-protection-test-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir(&path).unwrap();
+            let path = crate::test_support::create_unique_test_directory(
+                "tufekci-paperworks-protection-test",
+            );
             Self { path }
         }
     }

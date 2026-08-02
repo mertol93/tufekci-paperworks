@@ -926,7 +926,6 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn removes_every_selected_privacy_category_and_preserves_pages() {
@@ -1312,15 +1311,9 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "tufekci-paperworks-privacy-test-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir(&path).unwrap();
+            let path = crate::test_support::create_unique_test_directory(
+                "tufekci-paperworks-privacy-test",
+            );
             Self { path }
         }
     }

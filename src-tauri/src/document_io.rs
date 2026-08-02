@@ -172,7 +172,6 @@ fn modified_at_ms(metadata: &fs::Metadata) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use tauri::ipc::{InvokeResponseBody, IpcResponse};
 
     #[test]
@@ -238,15 +237,9 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "tufekci-paperworks-document-io-test-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir(&path).unwrap();
+            let path = crate::test_support::create_unique_test_directory(
+                "tufekci-paperworks-document-io-test",
+            );
             Self { path }
         }
     }

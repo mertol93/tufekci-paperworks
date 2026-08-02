@@ -67,3 +67,15 @@ test("pins the native desktop evidence viewport across hosted runners", async ()
   assert.match(ciWorkflow, /-screen 0 1280x900x24/u);
   assert.match(releaseWorkflow, /-screen 0 1280x900x24/u);
 });
+
+test("starts native PDF search only after the visible page finishes rendering", async () => {
+  const nativeSpec = await readFile(
+    new URL("../e2e/native-shell.e2e.mjs", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(nativeSpec, /await waitForPageRenderCompletion\(\);/u);
+  assert.match(nativeSpec, /\.pdf-canvas-container\.is-page \.pdf-render-state/u);
+  assert.match(nativeSpec, /reverse: true/u);
+  assert.match(nativeSpec, /Final status:/u);
+});

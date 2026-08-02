@@ -2852,7 +2852,6 @@ mod tests {
     use super::*;
     use image::{ImageBuffer, ImageFormat, Rgba};
     use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn inspects_exact_editable_text_and_image_objects() {
@@ -3265,15 +3264,8 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "paperworks-content-editor-test-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir_all(&path).unwrap();
+            let path =
+                crate::test_support::create_unique_test_directory("paperworks-content-editor-test");
             Self { path }
         }
     }

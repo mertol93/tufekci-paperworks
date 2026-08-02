@@ -33,6 +33,8 @@ mod scan_export;
 mod scanner;
 mod signature_vault;
 mod temporary_cleanup;
+#[cfg(test)]
+mod test_support;
 
 use tauri::Manager;
 

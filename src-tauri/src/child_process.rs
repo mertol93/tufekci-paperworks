@@ -346,7 +346,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::process::Stdio;
     use std::thread;
-    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+    use std::time::{Duration, Instant};
 
     #[test]
     fn terminating_a_managed_child_stops_its_descendant() {
@@ -442,15 +442,9 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let stamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "tufekci-paperworks-process-tree-{}-{stamp}",
-                std::process::id()
-            ));
-            fs::create_dir(&path).unwrap();
+            let path = crate::test_support::create_unique_test_directory(
+                "tufekci-paperworks-process-tree",
+            );
             Self { path }
         }
     }

@@ -2036,16 +2036,14 @@ mod tests {
     use crate::operation_audit::{OperationAudit, OperationAuditOutcome};
     use crate::privacy::{CleanPdfPrivacyRequest, PrivacyCleanOptions};
     use crate::scan_export::test_scan_pdf_request;
+    use crate::test_support::create_unique_test_directory;
     use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
     use image::{DynamicImage, ImageFormat, Rgb, RgbImage};
     use lopdf::{dictionary, Document, Object, Stream};
     use std::fs;
     use std::io::Cursor;
     use std::path::{Path, PathBuf};
-    use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
     use std::time::{Duration, Instant};
-
-    static NEXT_TEST_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
     fn scan_job_with_ocr(recognise_text: bool) -> StartPdfJobRequest {
         serde_json::from_value(serde_json::json!({
@@ -7053,16 +7051,7 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let sequence = NEXT_TEST_DIRECTORY.fetch_add(1, AtomicOrdering::Relaxed);
-            let path = std::env::temp_dir().join(format!(
-                "tufekci-paperworks-pdf-job-test-{}-{nonce}-{sequence}",
-                std::process::id()
-            ));
-            fs::create_dir(&path).unwrap();
+            let path = create_unique_test_directory("tufekci-paperworks-pdf-job-test");
             Self { path }
         }
     }

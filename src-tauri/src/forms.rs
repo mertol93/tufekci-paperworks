@@ -2733,7 +2733,6 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn inspects_hierarchical_typed_fields_and_rotated_widget_geometry() {
@@ -3384,15 +3383,8 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "tufekci-paperworks-form-test-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir(&path).unwrap();
+            let path =
+                crate::test_support::create_unique_test_directory("tufekci-paperworks-form-test");
             Self { path }
         }
     }
