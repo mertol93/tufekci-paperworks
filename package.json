@@ -63,7 +63,7 @@
     "mobile:ios:build": "tauri ios build --target aarch64 --ci --export-method app-store-connect"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "lucide-react": "^0.468.0",
     "pdfjs-dist": "^6.1.200",
