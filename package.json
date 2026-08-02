@@ -71,7 +71,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@napi-rs/canvas": "^1.0.2",
+    "@napi-rs/canvas": "^1.0.3",
     "@tauri-apps/cli": "^2.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
