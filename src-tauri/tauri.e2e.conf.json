@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "org.tufekci.paperworks.e2e",
+  "build": {
+    "beforeBuildCommand": "npm run build:e2e"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        {
+          "identifier": "e2e",
+          "description": "Test-only capability for the native end-to-end build",
+          "windows": ["main"],
+          "permissions": [
+            "core:default",
+            "core:window:default",
+            "dialog:allow-open",
+            "dialog:allow-save",
+            "wdio:default",
+            "wdio-webdriver:default"
+          ]
+        }
+      ]
+    }
+  }
+}

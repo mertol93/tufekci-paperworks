@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  checks: write
+  contents: read
+
+jobs:
+  security:
+    name: Dependency security
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Audit distributable npm dependencies
+        run: npm run security:audit-production
+
+      - name: Audit locked Rust dependencies
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: src-tauri
+
+  check:
+    name: Check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            xauth \
+            xvfb
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Audit distributable source tree
+        run: npm run release:source-check
+
+      - name: Check TypeScript
+        run: npm run check
+
+      - name: Test frontend and release helpers
+        run: npm run test:frontend
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify generated PDF.js rendering corpus
+        run: npm run qa:rendering-corpus
+
+      - name: Verify generated OCR corpus
+        run: npm run qa:ocr-corpus
+
+      - name: Retain rendering-corpus evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendering-corpus-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: qa-fixtures/rendering-report-*.json
+
+      - name: Retain OCR-corpus evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-corpus-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: qa-fixtures/ocr-corpus/ocr-corpus-report-*.json
+
+      - name: Verify universal macOS scanner bridge
+        if: runner.os == 'macOS'
+        run: |
+          test -x src-tauri/binaries/tufekci-paperworks-scanner-aarch64-apple-darwin
+          test -x src-tauri/binaries/tufekci-paperworks-scanner-x86_64-apple-darwin
+          test -x src-tauri/binaries/tufekci-paperworks-scanner-universal-apple-darwin
+          xcrun lipo -verify_arch arm64 x86_64 \
+            src-tauri/binaries/tufekci-paperworks-scanner-universal-apple-darwin
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+      - name: Check Tauri backend
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Test Tauri backend
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Build isolated native end-to-end application
+        run: npm run e2e:build-app
+
+      - name: Run native end-to-end workflows on Linux
+        if: runner.os == 'Linux'
+        env:
+          WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+        run: xvfb-run -a --server-args="-screen 0 1280x900x24" npm run e2e:test
+
+      - name: Run native end-to-end workflows
+        if: runner.os != 'Linux'
+        run: npm run e2e:test
+
+      - name: Verify native end-to-end evidence
+        run: npm run e2e:verify
+
+      - name: Retain native end-to-end evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-e2e-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: error
+          retention-days: 14
+          path: e2e-evidence/e2e-report-*.json
+
+      - name: Check macOS Tauri sidecar integration
+        if: runner.os == 'macOS'
+        run: npm run tauri build -- --debug --no-bundle

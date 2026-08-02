@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest an improvement to Tüfekci Paperworks
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Explain the document workflow that is difficult today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed experience
+      description: Describe how you would expect the feature to work.
+    validations:
+      required: true
+  - type: dropdown
+    id: privacy
+    attributes:
+      label: Can this remain fully local?
+      options:
+        - Yes
+        - No
+        - Unsure
+    validations:
+      required: true

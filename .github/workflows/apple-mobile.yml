@@ -1,0 +1,70 @@
+name: Apple mobile
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: apple-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ios-simulator:
+    name: iPhone and iPad simulator
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      APPLE_DEVELOPMENT_TEAM: "0000000000"
+      CI: "true"
+      CODE_SIGNING_ALLOWED: "NO"
+      CODE_SIGNING_REQUIRED: "NO"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Setup Rust for Apple mobile
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Validate Apple mobile source configuration
+        run: npm run release:apple-mobile-check
+
+      - name: Check TypeScript
+        run: npm run check
+
+      - name: Test frontend and release helpers
+        run: npm run test:frontend
+
+      - name: Generate the ignored Xcode project
+        run: npm run mobile:ios:init
+
+      - name: Build the unsigned arm64 simulator application
+        run: npm run mobile:ios:build-simulator
+
+      - name: Verify and package simulator evidence
+        run: npm run release:apple-mobile-bundle -- src-tauri/gen/apple artifacts/apple-mobile-simulator
+
+      - name: Retain Apple mobile simulator evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-mobile-simulator-${{ runner.arch }}
+          if-no-files-found: error
+          retention-days: 14
+          path: artifacts/apple-mobile-simulator

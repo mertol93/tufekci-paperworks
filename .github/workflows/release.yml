@@ -1,0 +1,888 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  checks: write
+  contents: write
+
+jobs:
+  preflight:
+    name: Validate release identity
+    runs-on: ubuntu-24.04
+    outputs:
+      channel: ${{ steps.version.outputs.channel }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Audit distributable npm dependencies
+        run: npm run security:audit-production
+
+      - name: Audit locked Rust dependencies
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: src-tauri
+
+      - name: Audit distributable source tree
+        run: npm run release:source-check
+
+      - name: Validate package versions and tag
+        id: version
+        run: npm run release:version -- "$GITHUB_REF_NAME"
+
+  ocr:
+    name: OCR, PDF/A and certificate engine evidence (${{ matrix.platform }})
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - ubuntu-24.04
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux desktop and OCR dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            ghostscript \
+            tesseract-ocr-eng \
+            tesseract-ocr-tur \
+            tesseract-ocr-osd
+
+      - name: Install macOS OCR dependencies
+        if: runner.os == 'macOS'
+        run: brew install ghostscript tesseract-lang
+
+      - name: Setup Python for OCRmyPDF
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Unix OCRmyPDF
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/paperworks-ocrmypdf"
+          "$RUNNER_TEMP/paperworks-ocrmypdf/bin/python" -m pip install \
+            --disable-pip-version-check \
+            "ocrmypdf==17.8.1" \
+            "pyHanko==0.36.2" \
+            "pyhanko-cli==0.4.2"
+          echo "$RUNNER_TEMP/paperworks-ocrmypdf/bin" >> "$GITHUB_PATH"
+
+      - name: Install pinned Windows OCR dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          winget install -e --id UB-Mannheim.TesseractOCR `
+            --version 5.4.0.20240606 `
+            --accept-package-agreements `
+            --accept-source-agreements `
+            --disable-interactivity `
+            --silent
+          $tesseract = "C:\Program Files\Tesseract-OCR"
+          $data = Join-Path $env:RUNNER_TEMP "paperworks-tessdata"
+          $ocr = Join-Path $env:RUNNER_TEMP "paperworks-ocrmypdf"
+          if (!(Test-Path -LiteralPath "$tesseract\tesseract.exe")) {
+            throw "The pinned Tesseract executable was not installed."
+          }
+          New-Item -ItemType Directory -Force -Path $data | Out-Null
+          Copy-Item -Path "$tesseract\tessdata\*" -Destination $data -Recurse -Force
+          $turkishModel = Join-Path $data "tur.traineddata"
+          Invoke-WebRequest -UseBasicParsing `
+            -Uri "https://raw.githubusercontent.com/tesseract-ocr/tessdata/ced78752cc61322fb554c280d13360b35b8684e4/tur.traineddata" `
+            -OutFile $turkishModel
+          $expectedModelHash = "489B9504E80D7184ED1AC9A1976647884EE71149DA231FF3C2C1DC15370F2F3D"
+          $actualModelHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $turkishModel).Hash
+          if ($actualModelHash -ne $expectedModelHash) {
+            throw "The Turkish Tesseract model did not match its pinned SHA-256 digest."
+          }
+          python -m venv $ocr
+          & "$ocr\Scripts\python.exe" -m pip install `
+            --disable-pip-version-check `
+            "ocrmypdf==17.8.1" `
+            "pyHanko==0.36.2" `
+            "pyhanko-cli==0.4.2"
+          $tesseract | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "$ocr\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "TESSDATA_PREFIX=$data" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install pinned Windows Ghostscript
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "gs10071w64.exe"
+          $installRoot = Join-Path $env:RUNNER_TEMP "paperworks-ghostscript"
+          Invoke-WebRequest -UseBasicParsing `
+            -Uri "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10071/gs10071w64.exe" `
+            -OutFile $installer
+          $expectedHash = "3A4C28D0AAC47AA7CCCD35A5932C55110376E9DBD966898DDE388B7FABA444A4"
+          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash
+          if ($actualHash -ne $expectedHash) {
+            throw "The Ghostscript installer did not match its pinned SHA-256 digest."
+          }
+          $process = Start-Process -FilePath $installer `
+            -ArgumentList @("/S", "/D=$installRoot") `
+            -Wait `
+            -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "The pinned Ghostscript installer failed with exit code $($process.ExitCode)."
+          }
+          $ghostscriptBin = Join-Path $installRoot "bin"
+          if (!(Test-Path -LiteralPath "$ghostscriptBin\gswin64c.exe")) {
+            throw "The pinned 64-bit Ghostscript executable was not installed."
+          }
+          $ghostscriptBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Java for veraPDF
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Install pinned veraPDF validator
+        run: node scripts/install-verapdf.mjs
+
+      - name: Run searchable OCR engine corpus
+        run: npm run qa:ocr-engine
+
+      - name: Run PDF/A conversion and validation corpus
+        run: npm run qa:pdfa-engine
+
+      - name: Run certificate signing and validation corpus
+        env:
+          PAPERWORKS_REQUIRE_CERTIFICATE_TIMESTAMP: "1"
+          PAPERWORKS_TEST_TSA_URL: ${{ secrets.PAPERWORKS_TEST_TSA_URL }}
+        run: npm run qa:certificate-engine
+
+      - name: Retain release OCR-engine evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ocr-engine-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: error
+          retention-days: 30
+          path: qa-fixtures/ocr-corpus/ocr-engine-report-*.json
+
+      - name: Retain release PDF/A-engine evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-pdfa-engine-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: error
+          retention-days: 30
+          path: qa-fixtures/pdfa-engine/pdfa-engine-report-*.json
+
+      - name: Retain release certificate-engine evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-certificate-engine-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: error
+          retention-days: 30
+          path: qa-fixtures/certificate-engine/certificate-engine-report-*.json
+
+  build:
+    name: Build (${{ matrix.platform }})
+    environment: updater-signing
+    needs:
+      - preflight
+      - ocr
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--target universal-apple-darwin"
+            rustTargets: "aarch64-apple-darwin,x86_64-apple-darwin"
+            bundleRoot: "src-tauri/target/universal-apple-darwin/release/bundle"
+            packagePlatform: "macos"
+            packageArchitecture: "universal"
+          - platform: ubuntu-22.04
+            args: ""
+            rustTargets: ""
+            bundleRoot: "src-tauri/target/release/bundle"
+            packagePlatform: "linux"
+            packageArchitecture: "x64"
+          - platform: windows-latest
+            args: ""
+            rustTargets: ""
+            bundleRoot: "src-tauri/target/release/bundle"
+            packagePlatform: "windows"
+            packageArchitecture: "x64"
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            rpm \
+            libarchive-tools \
+            xauth \
+            xvfb
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rustTargets }}
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Verify generated PDF.js rendering corpus
+        run: npm run qa:rendering-corpus
+
+      - name: Build isolated native end-to-end application
+        run: npm run e2e:build-app
+
+      - name: Run native end-to-end workflows on Linux
+        if: runner.os == 'Linux'
+        env:
+          WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+        run: xvfb-run -a --server-args="-screen 0 1280x900x24" npm run e2e:test
+
+      - name: Run native end-to-end workflows
+        if: runner.os != 'Linux'
+        run: npm run e2e:test
+
+      - name: Verify native end-to-end evidence
+        run: npm run e2e:verify
+
+      - name: Retain release native end-to-end evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-native-e2e-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: error
+          retention-days: 30
+          path: e2e-evidence/e2e-report-*.json
+
+      - name: Generate credential-gated signed updater configuration
+        env:
+          PAPERWORKS_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
+          PAPERWORKS_UPDATE_ENDPOINT: https://github.com/${{ github.repository }}/releases/download/updates-${{ needs.preflight.outputs.channel }}/latest.json
+          PAPERWORKS_UPDATE_PUBLIC_KEY: ${{ vars.PAPERWORKS_UPDATE_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run release:updater-config
+
+      - name: Generate Windows publisher-signing configuration
+        if: runner.os == 'Windows'
+        env:
+          PAPERWORKS_RELEASE_PLATFORM: windows
+          PAPERWORKS_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.PAPERWORKS_WINDOWS_CERTIFICATE_THUMBPRINT }}
+          PAPERWORKS_WINDOWS_TIMESTAMP_URL: ${{ vars.PAPERWORKS_WINDOWS_TIMESTAMP_URL }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: npm run release:platform-signing
+
+      - name: Generate macOS publisher-signing configuration
+        if: runner.os == 'macOS'
+        env:
+          PAPERWORKS_RELEASE_PLATFORM: macos
+          PAPERWORKS_APPLE_TEAM_ID: ${{ vars.PAPERWORKS_APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: npm run release:platform-signing
+
+      - name: Generate explicit Linux publisher-signing configuration
+        if: runner.os == 'Linux'
+        env:
+          PAPERWORKS_RELEASE_PLATFORM: linux
+        run: npm run release:platform-signing
+
+      - name: Import the Windows publisher certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          PAPERWORKS_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.PAPERWORKS_WINDOWS_CERTIFICATE_THUMBPRINT }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $thumbprint = $env:PAPERWORKS_WINDOWS_CERTIFICATE_THUMBPRINT.ToUpperInvariant()
+          $storePath = "Cert:\CurrentUser\My\$thumbprint"
+          $certificatePath = Join-Path $env:RUNNER_TEMP 'paperworks-publisher-certificate.pfx'
+          $cleanupPath = Join-Path $env:RUNNER_TEMP 'paperworks-imported-certificate-thumbprints.txt'
+          [IO.File]::WriteAllText($cleanupPath, '', [Text.Encoding]::ASCII)
+          $existingThumbprints = @(
+            Get-ChildItem -Path 'Cert:\CurrentUser\My' |
+              ForEach-Object { $_.Thumbprint.ToUpperInvariant() }
+          )
+          if ($existingThumbprints -contains $thumbprint) {
+            throw 'The ephemeral runner already contains the configured publisher certificate.'
+          }
+          try {
+            $bytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+            if ($bytes.Length -lt 1024 -or $bytes.Length -gt 1048576) {
+              throw 'The Windows publisher certificate is outside its size limit.'
+            }
+            [IO.File]::WriteAllBytes($certificatePath, $bytes)
+            $password = ConvertTo-SecureString `
+              -String $env:WINDOWS_CERTIFICATE_PASSWORD `
+              -AsPlainText `
+              -Force
+            Import-PfxCertificate `
+              -FilePath $certificatePath `
+              -CertStoreLocation 'Cert:\CurrentUser\My' `
+              -Password $password `
+              -Exportable:$false | Out-Null
+            if (!(Test-Path -LiteralPath $storePath)) {
+              throw 'The expected Windows publisher certificate was not imported.'
+            }
+            $certificate = Get-Item -LiteralPath $storePath
+            $introducedCertificates = @(
+              Get-ChildItem -Path 'Cert:\CurrentUser\My' |
+                Where-Object { $existingThumbprints -notcontains $_.Thumbprint.ToUpperInvariant() }
+            )
+            $privateCertificates = @(
+              $introducedCertificates | Where-Object { $_.HasPrivateKey }
+            )
+            $codeSigningUsage = @(
+              $certificate.EnhancedKeyUsageList |
+                Where-Object { $_.ObjectId.Value -eq '1.3.6.1.5.5.7.3.3' }
+            )
+            if (
+              !$certificate.HasPrivateKey -or
+              $privateCertificates.Count -ne 1 -or
+              $privateCertificates[0].Thumbprint.ToUpperInvariant() -ne $thumbprint -or
+              $codeSigningUsage.Count -ne 1 -or
+              $certificate.NotBefore.ToUniversalTime() -gt [DateTime]::UtcNow -or
+              $certificate.NotAfter.ToUniversalTime() -le [DateTime]::UtcNow.AddDays(30)
+            ) {
+              throw 'The Windows publisher certificate is unusable, expired, or too close to expiry.'
+            }
+          } finally {
+            try {
+              $introducedThumbprints = @(
+                Get-ChildItem -Path 'Cert:\CurrentUser\My' |
+                  Where-Object { $existingThumbprints -notcontains $_.Thumbprint.ToUpperInvariant() } |
+                  ForEach-Object { $_.Thumbprint.ToUpperInvariant() }
+              )
+              [IO.File]::WriteAllLines(
+                $cleanupPath,
+                [string[]]$introducedThumbprints,
+                [Text.Encoding]::ASCII
+              )
+            } finally {
+              Remove-Item -LiteralPath $certificatePath -Force -ErrorAction SilentlyContinue
+            }
+          }
+
+      - name: Prepare the macOS publisher identity and notarisation key
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          certificate_path="$RUNNER_TEMP/paperworks-publisher-certificate.p12"
+          keychain_path="$RUNNER_TEMP/paperworks-publisher.keychain-db"
+          api_key_path="$RUNNER_TEMP/paperworks-notarisation-key.p8"
+          original_keychain_path="$RUNNER_TEMP/paperworks-original-keychain.txt"
+          original_keychains_path="$RUNNER_TEMP/paperworks-original-keychains.txt"
+          security default-keychain | sed -E 's/^[[:space:]]*"(.*)"[[:space:]]*$/\1/' > "$original_keychain_path"
+          security list-keychains -d user | sed -E 's/^[[:space:]]*"(.*)"[[:space:]]*$/\1/' > "$original_keychains_path"
+          trap 'rm -f "$certificate_path"' EXIT
+          printf '%s' "$APPLE_CERTIFICATE" | openssl base64 -d -A > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security default-keychain -s "$keychain_path"
+          original_keychains=()
+          while IFS= read -r keychain; do
+            if [ -n "$keychain" ]; then
+              original_keychains+=("$keychain")
+            fi
+          done < "$original_keychains_path"
+          security list-keychains -d user -s "$keychain_path" "${original_keychains[@]}"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -t 3600 -u "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$keychain_path"
+          identities="$(security find-identity -v -p codesigning "$keychain_path")"
+          identity_count="$(printf '%s\n' "$identities" | grep -F -c "\"$APPLE_SIGNING_IDENTITY\"" || true)"
+          if [ "$identity_count" != "1" ]; then
+            echo 'The expected Developer ID Application identity was not imported exactly once.' >&2
+            exit 1
+          fi
+          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
+          chmod 600 "$api_key_path"
+          {
+            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
+            echo "APPLE_API_ISSUER=$APPLE_API_ISSUER"
+            echo "APPLE_API_KEY=$APPLE_API_KEY"
+            echo "APPLE_API_KEY_PATH=$api_key_path"
+          } >> "$GITHUB_ENV"
+
+      - name: Build and verify universal macOS scanner bridge
+        if: runner.os == 'macOS'
+        run: |
+          npm run build:macos-scanner
+          test -x src-tauri/binaries/tufekci-paperworks-scanner-aarch64-apple-darwin
+          test -x src-tauri/binaries/tufekci-paperworks-scanner-x86_64-apple-darwin
+          xcrun lipo -verify_arch arm64 x86_64 \
+            src-tauri/binaries/tufekci-paperworks-scanner-universal-apple-darwin
+
+      - name: Verify generated OCR corpus
+        run: npm run qa:ocr-corpus
+
+      - name: Retain release rendering evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-rendering-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: qa-fixtures/rendering-report-*.json
+
+      - name: Retain release OCR-corpus evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ocr-corpus-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: qa-fixtures/ocr-corpus/ocr-corpus-report-*.json
+
+      - name: Build and upload bundles
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAPERWORKS_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
+          PAPERWORKS_UPDATE_ENDPOINT: https://github.com/${{ github.repository }}/releases/download/updates-${{ needs.preflight.outputs.channel }}/latest.json
+          PAPERWORKS_UPDATE_PUBLIC_KEY: ${{ vars.PAPERWORKS_UPDATE_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          args: "${{ matrix.args }} --config src-tauri/updater.release.conf.json --config src-tauri/platform-signing.release.conf.json"
+          tagName: ${{ github.ref_name }}
+          releaseName: "Tüfekci Paperworks ${{ github.ref_name }}"
+          releaseBody: "Alpha pre-release. Review docs/FEATURE_STATUS.md and CHANGELOG.md before installing. Publisher signatures, timestamps, macOS notarisation, and updater signatures are mandatory tagged-build gates; first-run platform and reputation evidence remains under review."
+          releaseDraft: true
+          prerelease: ${{ needs.preflight.outputs.prerelease }}
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+          updaterJsonPreferNsis: true
+
+      - name: Remove the ephemeral Windows publisher certificate
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $cleanupPath = Join-Path $env:RUNNER_TEMP 'paperworks-imported-certificate-thumbprints.txt'
+          if (Test-Path -LiteralPath $cleanupPath) {
+            foreach ($line in Get-Content -LiteralPath $cleanupPath) {
+              $thumbprint = $line.Trim().ToUpperInvariant()
+              if ($thumbprint -match '^[0-9A-F]{40}$') {
+                Remove-Item `
+                  -LiteralPath "Cert:\CurrentUser\My\$thumbprint" `
+                  -Force `
+                  -ErrorAction SilentlyContinue
+              }
+            }
+            Remove-Item -LiteralPath $cleanupPath -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Remove the ephemeral macOS signing material
+        if: always() && runner.os == 'macOS'
+        shell: bash
+        run: |
+          keychain_path="$RUNNER_TEMP/paperworks-publisher.keychain-db"
+          original_keychain_path="$RUNNER_TEMP/paperworks-original-keychain.txt"
+          original_keychains_path="$RUNNER_TEMP/paperworks-original-keychains.txt"
+          if [ -f "$original_keychain_path" ]; then
+            original_keychain="$(cat "$original_keychain_path")"
+            if [ -n "$original_keychain" ]; then
+              security default-keychain -s "$original_keychain" || true
+            fi
+          fi
+          if [ -f "$original_keychains_path" ]; then
+            original_keychains=()
+            while IFS= read -r keychain; do
+              if [ -n "$keychain" ]; then
+                original_keychains+=("$keychain")
+              fi
+            done < "$original_keychains_path"
+            if [ "${#original_keychains[@]}" -gt 0 ]; then
+              security list-keychains -d user -s "${original_keychains[@]}" || true
+            fi
+          fi
+          security delete-keychain "$keychain_path" >/dev/null 2>&1 || true
+          rm -f \
+            "$RUNNER_TEMP/paperworks-publisher-certificate.p12" \
+            "$RUNNER_TEMP/paperworks-notarisation-key.p8" \
+            "$original_keychain_path" \
+            "$original_keychains_path"
+
+      - name: Verify release package structure and identity
+        run: >
+          npm run release:verify-bundles --
+          "${{ matrix.bundleRoot }}"
+          release-package-evidence
+          --platform "${{ matrix.packagePlatform }}"
+          --architecture "${{ matrix.packageArchitecture }}"
+          --signature-policy signed-required
+          --signing-config src-tauri/platform-signing.release.conf.json
+
+      - name: Retain release package evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-package-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: error
+          retention-days: 30
+          path: release-package-evidence/package-report-*.json
+
+      - name: Retain bundles for release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-bundles-${{ runner.os }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            src-tauri/target/release/bundle/**
+            src-tauri/target/universal-apple-darwin/release/bundle/**
+
+  linux-package-install:
+    name: Linux package installation evidence
+    needs: build
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Download Linux release bundles
+        uses: actions/download-artifact@v5
+        with:
+          name: release-bundles-Linux
+          path: release-linux-assets
+
+      - name: Install AppImage, deb and rpm on supported baselines
+        run: npm run release:linux-install -- release-linux-assets release-linux-install-evidence
+
+      - name: Retain Linux package installation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-install-evidence
+          if-no-files-found: error
+          retention-days: 30
+          path: release-linux-install-evidence/linux-install-report-*.json
+
+  metadata:
+    name: Release metadata
+    needs:
+      - preflight
+      - build
+      - linux-package-install
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install locked dependencies
+        run: |
+          npm ci
+          cargo fetch --locked --manifest-path src-tauri/Cargo.toml
+
+      - name: Create and verify source archive
+        shell: bash
+        run: |
+          SOURCE_DATE_EPOCH="$(git show -s --format=%ct)" \
+            npm run release:source-archive
+
+      - name: Download platform bundles
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-bundles-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Download the assembled signed-update manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release download "$GITHUB_REF_NAME" --pattern latest.json --dir release-updater
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" \
+            --jq '{assetIds: [.assets[].id]}' \
+            > release-updater/release-assets.json
+
+      - name: Validate the complete signed-update manifest
+        shell: bash
+        run: |
+          mkdir -p release-updater-evidence
+          npm run release:updater-manifest -- \
+            release-updater/latest.json \
+            --version "${{ needs.preflight.outputs.version }}" \
+            --tag "$GITHUB_REF_NAME" \
+            --channel "${{ needs.preflight.outputs.channel }}" \
+            --repository "$GITHUB_REPOSITORY" \
+            --release-assets release-updater/release-assets.json \
+            --report release-updater-evidence/updater-manifest-report.json
+          cp release-updater/latest.json release-updater-evidence/latest.json
+
+      - name: Download rendering-corpus evidence
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-rendering-*
+          path: release-rendering-evidence
+          merge-multiple: true
+
+      - name: Download OCR-corpus evidence
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-ocr-corpus-*
+          path: release-ocr-corpus-evidence
+          merge-multiple: true
+
+      - name: Download OCR-engine evidence
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-ocr-engine-*
+          path: release-ocr-engine-evidence
+          merge-multiple: true
+
+      - name: Download PDF/A-engine evidence
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-pdfa-engine-*
+          path: release-pdfa-engine-evidence
+          merge-multiple: true
+
+      - name: Download certificate-engine evidence
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-certificate-engine-*
+          path: release-certificate-engine-evidence
+          merge-multiple: true
+
+      - name: Download native end-to-end evidence
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-native-e2e-*
+          path: release-native-e2e-evidence
+          merge-multiple: true
+
+      - name: Verify the native end-to-end operating-system matrix
+        run: npm run e2e:verify-matrix
+
+      - name: Download platform package evidence
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-package-*
+          path: release-package-evidence
+          merge-multiple: true
+
+      - name: Download Linux package installation evidence
+        uses: actions/download-artifact@v5
+        with:
+          name: release-linux-install-evidence
+          path: release-linux-install-evidence
+
+      - name: Verify the complete package evidence set
+        run: >
+          npm run release:package-evidence --
+          release-package-evidence
+          release-linux-install-evidence
+          release-package-summary
+
+      - name: Generate checksums, SBOMs, and licence inventory
+        shell: bash
+        run: |
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct)" >> "$GITHUB_ENV"
+          SOURCE_DATE_EPOCH="$(git show -s --format=%ct)" \
+            npm run release:metadata -- release-assets release-metadata
+
+      - name: Retain release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-metadata
+          if-no-files-found: error
+          retention-days: 30
+          path: release-metadata/**
+
+      - name: Retain signed updater evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-updater-evidence
+          if-no-files-found: error
+          retention-days: 30
+          path: release-updater-evidence/**
+
+      - name: Retain verified source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-source
+          if-no-files-found: error
+          retention-days: 30
+          path: artifacts/source-release/**
+
+      - name: Retain rendering-corpus evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-rendering-evidence
+          if-no-files-found: error
+          retention-days: 30
+          path: release-rendering-evidence/**
+
+      - name: Retain OCR-corpus evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ocr-corpus-evidence
+          if-no-files-found: error
+          retention-days: 30
+          path: release-ocr-corpus-evidence/**
+
+      - name: Retain OCR-engine evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ocr-engine-evidence
+          if-no-files-found: error
+          retention-days: 30
+          path: release-ocr-engine-evidence/**
+
+      - name: Retain PDF/A-engine evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-pdfa-engine-evidence
+          if-no-files-found: error
+          retention-days: 30
+          path: release-pdfa-engine-evidence/**
+
+      - name: Retain certificate-engine evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-certificate-engine-evidence
+          if-no-files-found: error
+          retention-days: 30
+          path: release-certificate-engine-evidence/**
+
+      - name: Retain native end-to-end evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-native-e2e-evidence
+          if-no-files-found: error
+          retention-days: 30
+          path: release-native-e2e-evidence/**
+
+      - name: Retain verified package evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-package-evidence
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            release-package-evidence/**
+            release-linux-install-evidence/**
+            release-package-summary/**
+
+      - name: Attach source, rendering, OCR, PDF/A, certificate, native, package, updater, and metadata evidence to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release upload "${GITHUB_REF_NAME}"
+          artifacts/source-release/*
+          release-rendering-evidence/*
+          release-ocr-corpus-evidence/*
+          release-ocr-engine-evidence/*
+          release-pdfa-engine-evidence/*
+          release-certificate-engine-evidence/*
+          release-native-e2e-evidence/*
+          release-package-evidence/*
+          release-linux-install-evidence/*
+          release-package-summary/*
+          release-updater-evidence/updater-manifest-report.json
+          release-metadata/*
+          --clobber

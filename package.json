@@ -1,0 +1,91 @@
+{
+  "name": "tufekci-paperworks",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "author": "Tüfekci Paperworks contributors",
+  "engines": {
+    "node": ">=22.13",
+    "npm": ">=10"
+  },
+  "overrides": {
+    "@wdio/native-utils": "2.5.0",
+    "minimatch@3.1.5": {
+      "brace-expansion": "1.1.17"
+    },
+    "mocha": {
+      "serialize-javascript": "7.0.5"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "build:macos-scanner": "node scripts/build-macos-scanner.mjs",
+    "check": "tsc --noEmit",
+    "predev": "npm run build:macos-scanner",
+    "dev": "vite",
+    "prebuild": "npm run build:macos-scanner",
+    "build": "tsc && vite build && node scripts/check-production-e2e-boundary.mjs dist",
+    "prebuild:e2e": "npm run build:macos-scanner",
+    "build:e2e": "tsc && vite build --mode e2e",
+    "e2e": "npm run e2e:build && npm run e2e:test && npm run e2e:verify",
+    "e2e:build": "npm run qa:rendering-corpus && npm run e2e:build-app",
+    "e2e:build-app": "npm run tauri build -- --debug --no-bundle --features e2e --config src-tauri/tauri.e2e.conf.json",
+    "e2e:test": "wdio run wdio.conf.mjs",
+    "e2e:verify": "node scripts/check-e2e-evidence.mjs e2e-evidence",
+    "e2e:verify-matrix": "node scripts/check-e2e-matrix.mjs release-native-e2e-evidence",
+    "qa:ocr-corpus": "node scripts/generate-ocr-corpus.mjs qa-fixtures/ocr-corpus && node scripts/check-ocr-corpus.mjs qa-fixtures/ocr-corpus",
+    "qa:ocr-engine": "npm run qa:ocr-corpus && node scripts/run-ocr-engine-corpus.mjs qa-fixtures/ocr-corpus",
+    "qa:certificate-engine": "npm run qa:rendering-corpus && node scripts/run-certificate-engine-corpus.mjs qa-fixtures qa-fixtures/certificate-engine",
+    "qa:pdfa-engine": "npm run qa:ocr-corpus && node scripts/run-pdfa-engine-corpus.mjs qa-fixtures/ocr-corpus qa-fixtures/pdfa-engine",
+    "qa:rendering-corpus": "cargo run --manifest-path src-tauri/Cargo.toml --example generate_pdf_fixtures -- qa-fixtures && node scripts/check-rendering-corpus.mjs qa-fixtures",
+    "release:metadata": "node scripts/generate-release-metadata.mjs",
+    "release:update-promotion": "node scripts/check-update-promotion.mjs",
+    "release:updater-config": "node scripts/generate-updater-config.mjs",
+    "release:updater-manifest": "node scripts/check-updater-manifest.mjs",
+    "release:linux-install": "node scripts/run-linux-package-install-gate.mjs",
+    "release:apple-mobile-check": "node scripts/check-apple-mobile.mjs",
+    "release:apple-mobile-bundle": "node scripts/check-apple-mobile-bundle.mjs",
+    "release:package-evidence": "node scripts/check-package-evidence.mjs",
+    "release:platform-signing": "node scripts/generate-platform-signing-config.mjs",
+    "release:source-archive": "node scripts/create-source-archive.mjs",
+    "release:source-check": "node scripts/check-source-tree.mjs",
+    "release:verify-bundles": "node scripts/check-release-bundles.mjs",
+    "release:version": "node scripts/check-release-version.mjs",
+    "security:audit-production": "npm audit --omit=dev --audit-level=low",
+    "test:frontend": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/accessibility.test.mjs tests/apple-mobile.test.mjs tests/app-updates.test.mjs tests/certificate-engine.test.mjs tests/comparison.test.mjs tests/bookmark-headings.test.mjs tests/bookmark-tree.test.mjs tests/merge-localisation.test.mjs tests/merge-plan.test.mjs tests/printed-contents.test.mjs tests/print.test.mjs tests/annotation-draft.test.mjs tests/batch-recipes.test.mjs tests/bounded-history.test.mjs tests/content-edit-draft.test.mjs tests/e2e-boundary.test.mjs tests/e2e-evidence.test.mjs tests/feature-status.test.mjs tests/form-draft.test.mjs tests/i18n.test.mjs tests/linux-package-install.test.mjs tests/ocr-corpus.test.mjs tests/ocr-engine-corpus.test.mjs tests/operation-audit.test.mjs tests/output-protection.test.mjs tests/page-finish.test.mjs tests/page-selection.test.mjs tests/page-transfer.test.mjs tests/pdf-edit-safety.test.mjs tests/pdf-jobs.test.mjs tests/pdf-password.test.mjs tests/pdf-search.test.mjs tests/pdfa-engine.test.mjs tests/platform-signing.test.mjs tests/recovery.test.mjs tests/redaction-draft.test.mjs tests/release-bundles.test.mjs tests/release-metadata.test.mjs tests/release-version.test.mjs tests/rendering-corpus.test.mjs tests/runtime-capabilities.test.mjs tests/signature-vault.test.mjs tests/source-archive.test.mjs tests/source-tree.test.mjs tests/updater-release.test.mjs tests/visual-signatures.test.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "mobile:ios:init": "tauri ios init --ci",
+    "mobile:ios:dev": "tauri ios dev",
+    "mobile:ios:build-simulator": "tauri ios build --debug --target aarch64-sim --ci",
+    "mobile:ios:build": "tauri ios build --target aarch64 --ci --export-method app-store-connect"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
+    "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^6.1.200",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^1.0.2",
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^5.2.0",
+    "@wdio/cli": "9.27.1",
+    "@wdio/local-runner": "9.27.1",
+    "@wdio/mocha-framework": "9.27.1",
+    "@wdio/spec-reporter": "9.27.1",
+    "@wdio/tauri-plugin": "1.2.0",
+    "@wdio/tauri-service": "1.2.0",
+    "typescript": "^5.6.3",
+    "vite": "^8.1.4",
+    "vite-plugin-static-copy": "^4.1.1",
+    "webdriverio": "9.27.1",
+    "yaml": "2.9.0"
+  }
+}

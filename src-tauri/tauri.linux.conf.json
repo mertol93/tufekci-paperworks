@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tufekci Paperworks",
+  "bundle": {
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/tufekci-paperworks.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/tufekci-paperworks.desktop"
+      }
+    }
+  }
+}

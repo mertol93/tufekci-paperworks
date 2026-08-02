@@ -1,0 +1,143 @@
+name: Promote signed update channel
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published immutable release tag to promote
+        required: true
+        type: string
+      channel:
+        description: Signed update channel
+        required: true
+        type: choice
+        options:
+          - alpha
+          - beta
+          - stable
+
+permissions:
+  contents: write
+
+concurrency:
+  group: signed-update-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote ${{ inputs.release_tag }} to ${{ inputs.channel }}
+    environment: updater-promotion
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout the immutable release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Validate the release identity
+        id: version
+        env:
+          PROMOTION_TAG: ${{ inputs.release_tag }}
+        run: npm run release:version -- "$PROMOTION_TAG"
+
+      - name: Validate the selected channel
+        env:
+          DERIVED_CHANNEL: ${{ steps.version.outputs.channel }}
+          PROMOTION_CHANNEL: ${{ inputs.channel }}
+        shell: bash
+        run: |
+          if [ "$DERIVED_CHANNEL" != "$PROMOTION_CHANNEL" ]; then
+            echo "The selected channel does not match the release version." >&2
+            exit 1
+          fi
+
+      - name: Download and validate the published signed-update manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROMOTION_CHANNEL: ${{ inputs.channel }}
+          PROMOTION_TAG: ${{ inputs.release_tag }}
+          PROMOTION_VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          mkdir -p update-promotion/source update-promotion/evidence
+          gh release view "$PROMOTION_TAG" \
+            --json isDraft,isPrerelease,tagName,url \
+            > update-promotion/source/release.json
+          gh release download "$PROMOTION_TAG" \
+            --pattern latest.json \
+            --dir update-promotion/source
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$PROMOTION_TAG" \
+            --jq '{assetIds: [.assets[].id]}' \
+            > update-promotion/source/release-assets.json
+          npm run release:updater-manifest -- \
+            update-promotion/source/latest.json \
+            --version "$PROMOTION_VERSION" \
+            --tag "$PROMOTION_TAG" \
+            --channel "$PROMOTION_CHANNEL" \
+            --repository "$GITHUB_REPOSITORY" \
+            --release-assets update-promotion/source/release-assets.json \
+            --report update-promotion/evidence/updater-manifest-report.json
+          npm run release:update-promotion -- \
+            update-promotion/source/release.json \
+            update-promotion/evidence/updater-manifest-report.json \
+            --version "$PROMOTION_VERSION" \
+            --tag "$PROMOTION_TAG" \
+            --channel "$PROMOTION_CHANNEL" \
+            --repository "$GITHUB_REPOSITORY" \
+            --report update-promotion/evidence/update-promotion-report.json
+
+      - name: Publish the approved channel manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROMOTION_CHANNEL: ${{ inputs.channel }}
+          PROMOTION_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          channel_tag="updates-$PROMOTION_CHANNEL"
+          title="Tüfekci Paperworks ${PROMOTION_CHANNEL^} update channel"
+          notes="Mutable signed-update pointer. latest.json was approved from $PROMOTION_TAG; install packages from the immutable source release."
+          if gh release view "$channel_tag" >/dev/null 2>&1; then
+            gh release edit "$channel_tag" --title "$title" --notes "$notes" --prerelease
+          else
+            gh release create "$channel_tag" \
+              --target "$(git rev-parse HEAD)" \
+              --title "$title" \
+              --notes "$notes" \
+              --prerelease
+          fi
+          gh release upload "$channel_tag" \
+            update-promotion/source/latest.json \
+            update-promotion/evidence/updater-manifest-report.json \
+            update-promotion/evidence/update-promotion-report.json \
+            --clobber
+
+      - name: Verify the published channel bytes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROMOTION_CHANNEL: ${{ inputs.channel }}
+        shell: bash
+        run: |
+          mkdir -p update-promotion/published
+          gh release download "updates-$PROMOTION_CHANNEL" \
+            --pattern latest.json \
+            --dir update-promotion/published
+          cmp --silent \
+            update-promotion/source/latest.json \
+            update-promotion/published/latest.json
+
+      - name: Retain promotion evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-promotion-${{ inputs.channel }}-${{ inputs.release_tag }}
+          if-no-files-found: error
+          retention-days: 90
+          path: update-promotion/evidence/**
