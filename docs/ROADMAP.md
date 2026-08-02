@@ -377,9 +377,10 @@
   iOS/iPadOS 16 configuration, iPhone/iPad bundle families and orientations, safe areas,
   dynamic viewport sizing, touch targets, indirect input, runtime capability gating,
   backend rejection of desktop-only jobs, App Store-managed update presentation, and a
-  credential-free macOS 15 arm64-simulator compile and bundle-evidence workflow. The
-  first hosted workflow result, simulator and physical-device UI automation, Files
-  picker and document hand-off acceptance, camera scanning, native mobile OCR, signed
+  credential-free macOS 15 arm64-simulator compile and bundle-evidence workflow. Hosted
+  run `30766986118` passed and retained its bundle evidence. Simulator and
+  physical-device UI automation, Files picker and document hand-off acceptance, camera
+  scanning, native mobile OCR, signed
   device archive, TestFlight, privacy declarations, accessibility review, and App Store
   review remain outstanding.
 - Add installer builds. Draft Windows, Linux, and universal macOS packaging is present.

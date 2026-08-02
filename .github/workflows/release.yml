@@ -497,8 +497,9 @@ jobs:
           npm run build:macos-scanner
           test -x src-tauri/binaries/tufekci-paperworks-scanner-aarch64-apple-darwin
           test -x src-tauri/binaries/tufekci-paperworks-scanner-x86_64-apple-darwin
-          xcrun lipo -verify_arch arm64 x86_64 \
-            src-tauri/binaries/tufekci-paperworks-scanner-universal-apple-darwin
+          xcrun lipo \
+            src-tauri/binaries/tufekci-paperworks-scanner-universal-apple-darwin \
+            -verify_arch arm64 x86_64
 
       - name: Verify generated OCR corpus
         run: npm run qa:ocr-corpus

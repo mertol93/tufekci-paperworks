@@ -10,6 +10,14 @@ const signatureLayer = readFileSync(
   new URL("../src/VisualSignatureLayer.tsx", import.meta.url),
   "utf8"
 );
+const ciWorkflow = readFileSync(
+  new URL("../.github/workflows/ci.yml", import.meta.url),
+  "utf8"
+);
+const releaseWorkflow = readFileSync(
+  new URL("../.github/workflows/release.yml", import.meta.url),
+  "utf8"
+);
 const directProbeSources = [
   "archive.rs",
   "certificate.rs",
@@ -49,4 +57,18 @@ test("gates desktop engines while retaining the native mobile PDF core", () => {
   for (const source of directProbeSources) {
     assert.match(source, /current_capabilities/u);
   }
+});
+
+test("verifies the macOS scanner input with Xcode-compatible lipo ordering", () => {
+  const scannerVerification =
+    /xcrun lipo\s+\\\s+src-tauri\/binaries\/tufekci-paperworks-scanner-universal-apple-darwin\s+\\\s+-verify_arch arm64 x86_64/u;
+
+  assert.match(ciWorkflow, scannerVerification);
+  assert.match(releaseWorkflow, scannerVerification);
+  assert.doesNotMatch(ciWorkflow, /lipo -verify_arch arm64 x86_64/u);
+  assert.doesNotMatch(releaseWorkflow, /lipo -verify_arch arm64 x86_64/u);
+  assert.match(
+    ciWorkflow,
+    /if: always\(\) && hashFiles\('e2e-evidence\/e2e-report-\*\.json'\) != ''/u
+  );
 });

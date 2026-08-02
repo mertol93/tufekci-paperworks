@@ -51,3 +51,16 @@ test("rejects end-to-end markers in production assets", async () => {
     await rm(root, { force: true, recursive: true });
   }
 });
+
+test("pins the native desktop evidence viewport across hosted runners", async () => {
+  const [nativeSpec, ciWorkflow, releaseWorkflow] = await Promise.all([
+    readFile(new URL("../e2e/native-shell.e2e.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"),
+    readFile(new URL("../.github/workflows/release.yml", import.meta.url), "utf8")
+  ]);
+
+  assert.match(nativeSpec, /browser\.setWindowSize\(1_280, 820\)/u);
+  assert.match(nativeSpec, /native window width was/u);
+  assert.match(ciWorkflow, /-screen 0 1280x900x24/u);
+  assert.match(releaseWorkflow, /-screen 0 1280x900x24/u);
+});

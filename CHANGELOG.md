@@ -775,6 +775,12 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Xcode 26-compatible universal macOS scanner verification now places the input before
+  `lipo -verify_arch`, and CI uploads native end-to-end evidence only when an earlier
+  stage produced it. Native desktop tests now request their evidence viewport explicitly,
+  avoiding a smaller WebKitGTK default on headless Linux. The first hosted iPhone/iPad
+  simulator run passed its complete compile, bundle-metadata, archive, hash, and
+  evidence-upload gate.
 - Native PDF workspaces now keep their clear-job callback stable while inspection and
   publication snapshots change, preventing source-bound dialogs from closing during a
   review. The bookmark workspace also gives expanded printed-contents controls

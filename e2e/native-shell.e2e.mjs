@@ -20,6 +20,10 @@ const completedCases = [];
 let viewport = null;
 
 describe("Tüfekci Paperworks native shell", () => {
+  before(async () => {
+    await browser.setWindowSize(1_280, 820);
+  });
+
   after(async () => {
     if (completedCases.length === E2E_CASE_IDS.length) {
       await writeE2eEvidence({
@@ -58,8 +62,14 @@ describe("Tüfekci Paperworks native shell", () => {
 
     const size = await browser.getWindowSize();
     viewport = { height: size.height, width: size.width };
-    assert.ok(viewport.width >= 960);
-    assert.ok(viewport.height >= 640);
+    assert.ok(
+      viewport.width >= 960,
+      `The native window width was ${viewport.width}px; expected at least 960px.`
+    );
+    assert.ok(
+      viewport.height >= 640,
+      `The native window height was ${viewport.height}px; expected at least 640px.`
+    );
     recordCase("native-shell-readiness");
   });
 

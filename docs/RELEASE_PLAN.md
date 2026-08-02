@@ -554,8 +554,11 @@ unchecked until the full user workflow is dependable.
   desktop-only jobs, App Store-managed update state, safe-area/dynamic-viewport/touch
   interaction contracts, and a credential-free macOS 15 arm64-simulator workflow with
   bundle-identity, device-family, executable, archive, and SHA-256 evidence checks.
-- [ ] Retain the first hosted Apple mobile workflow result, then run the complete
-  compact/regular-width, portrait/landscape, Files picker, keyboard/pointer, VoiceOver,
+- [x] Retain the first hosted Apple mobile workflow result. Run `30766986118` passed
+  the arm64 simulator compile, bundle metadata, iPhone/iPad family, archive, hash, and
+  evidence-upload gates.
+- [ ] Run the complete compact/regular-width, portrait/landscape, Files picker,
+  keyboard/pointer, VoiceOver,
   Dynamic Type, reduced-motion, low-memory, document-integrity, and disabled-feature
   matrix on representative iPhone and iPad simulators and physical devices.
 - [ ] Create a credential-backed iOS distribution archive and retain installation,

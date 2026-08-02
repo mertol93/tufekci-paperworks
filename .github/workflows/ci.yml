@@ -122,8 +122,9 @@ jobs:
           test -x src-tauri/binaries/tufekci-paperworks-scanner-aarch64-apple-darwin
           test -x src-tauri/binaries/tufekci-paperworks-scanner-x86_64-apple-darwin
           test -x src-tauri/binaries/tufekci-paperworks-scanner-universal-apple-darwin
-          xcrun lipo -verify_arch arm64 x86_64 \
-            src-tauri/binaries/tufekci-paperworks-scanner-universal-apple-darwin
+          xcrun lipo \
+            src-tauri/binaries/tufekci-paperworks-scanner-universal-apple-darwin \
+            -verify_arch arm64 x86_64
 
       - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
@@ -151,7 +152,7 @@ jobs:
         run: npm run e2e:verify
 
       - name: Retain native end-to-end evidence
-        if: always()
+        if: always() && hashFiles('e2e-evidence/e2e-report-*.json') != ''
         uses: actions/upload-artifact@v4
         with:
           name: native-e2e-${{ runner.os }}-${{ runner.arch }}

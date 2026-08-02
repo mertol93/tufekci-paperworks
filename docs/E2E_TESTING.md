@@ -109,7 +109,9 @@ npm run e2e:test
 npm run e2e:verify
 ```
 
-The app must be allowed to open a desktop window. On Linux, install Xvfb and run:
+The app must be allowed to open a desktop window. The suite explicitly sizes that
+window to 1280 × 820 before collecting its bounded viewport evidence. On Linux, install
+Xvfb and run it inside a 1280 × 900 virtual screen:
 
 ```bash
 WEBKIT_DISABLE_COMPOSITING_MODE=1 \
