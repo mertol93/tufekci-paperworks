@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { type PDFDocumentProxy } from "./pdf";
+import { extractPdfPageText, getPdfPageTextContent } from "./pdfText";
 import {
   classifyPdfSearchError,
   countPdfSearchOccurrences,
@@ -20,9 +21,6 @@ export type PdfSearchPage = {
 };
 
 export function usePdfSearch(pages: PdfSearchPage[], query: string, locale: string) {
-  const textCache = useRef(
-    new WeakMap<PDFDocumentProxy, Map<number, Promise<string>>>()
-  );
   const [matches, setMatches] = useState<PdfSearchMatch[]>([]);
   const [pagesSearched, setPagesSearched] = useState(0);
   const [searching, setSearching] = useState(false);
@@ -55,11 +53,7 @@ export function usePdfSearch(pages: PdfSearchPage[], query: string, locale: stri
 
         const plannedPage = pages[index];
         const text = plannedPage.document
-          ? await getPageText(
-              plannedPage.document,
-              plannedPage.sourcePage,
-              textCache.current
-            )
+          ? await getPageText(plannedPage.document, plannedPage.sourcePage)
           : "";
         const count = countPdfSearchOccurrences(
           normalisePdfSearchText(text, locale),
@@ -113,34 +107,7 @@ export function usePdfSearch(pages: PdfSearchPage[], query: string, locale: stri
 
 async function getPageText(
   document: PDFDocumentProxy,
-  pageNumber: number,
-  cache: WeakMap<PDFDocumentProxy, Map<number, Promise<string>>>
+  pageNumber: number
 ) {
-  let documentCache = cache.get(document);
-  if (!documentCache) {
-    documentCache = new Map();
-    cache.set(document, documentCache);
-  }
-
-  const cached = documentCache.get(pageNumber);
-  if (cached) {
-    return cached;
-  }
-
-  const pending = document.getPage(pageNumber).then(async (page) => {
-    const content = await page.getTextContent();
-    return content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-  });
-
-  documentCache.set(pageNumber, pending);
-  void pending.catch(() => {
-    if (documentCache?.get(pageNumber) === pending) {
-      documentCache.delete(pageNumber);
-    }
-  });
-  return pending;
+  return extractPdfPageText(await getPdfPageTextContent(document, pageNumber));
 }

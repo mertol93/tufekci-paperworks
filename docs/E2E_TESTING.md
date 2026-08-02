@@ -19,10 +19,10 @@ The fixed evidence contract contains eleven cases:
    drag, group step movement, rotation, duplication and deletion with one-step undo; then
    ordinary duplication, paper-sized blank insertion, rotation, deletion, undo, and redo.
 5. Non-blank PDF.js canvas pixels and progressive text search across the edited plan.
-   The case waits for the visible canvas and text layer to finish before starting the
-   document-wide extraction, so it does not overlap two PDF.js text streams. Pure
-   boundary tests separately cover selected-locale casing, compatibility normalisation,
-   retryable rejected caches, and content-free extraction failures.
+   The visible text layer and document-wide search share one retryable PDF.js text-content
+   request per source page, and the case waits for that render to finish before searching.
+   Pure boundary tests separately cover selected-locale casing, compatibility
+   normalisation, rejected-cache eviction, and content-free extraction failures.
 6. `Ctrl+P` routing, rejected and accepted custom page ranges, bounded local PDF.js
    print-intent rendering from the edited organiser plan, physical per-page boxes,
    non-blank prepared pixels, volatile previews, and a simulated system-dialogue request
