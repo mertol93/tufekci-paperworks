@@ -20,7 +20,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 aes-gcm = { version = "0.10.3", features = ["zeroize"] }
 argon2 = "0.5.3"
-base64 = "0.22"
+base64 = "0.23"
 image = { version = "0.25.10", default-features = false, features = ["bmp", "gif", "jpeg", "png", "pnm", "tiff", "webp"] }
 lopdf = { version = "0.44.0", default-features = false }
 minisign-verify = "0.2.5"
