@@ -781,6 +781,9 @@ The project follows [Semantic Versioning](https://semver.org/).
   and record the rendered DOM size, avoiding WebKitGTK's unsupported zero window-rectangle
   response on headless Linux. The first hosted iPhone/iPad simulator run passed its
   complete compile, bundle-metadata, archive, hash, and evidence-upload gate.
+- The process-tree cancellation regression now samples a stable optional heartbeat after
+  termination. This preserves descendant-leak detection while accepting the valid empty
+  test file left when macOS interrupts the heartbeat's truncate-and-write operation.
 - Native PDF workspaces now keep their clear-job callback stable while inspection and
   publication snapshots change, preventing source-bound dialogs from closing during a
   review. The bookmark workspace also gives expanded printed-contents controls

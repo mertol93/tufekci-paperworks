@@ -371,9 +371,13 @@ mod tests {
         child.terminate_tree().unwrap();
         child.wait().unwrap();
         thread::sleep(Duration::from_millis(250));
-        let stopped_at = read_heartbeat(&heartbeat).unwrap();
-        thread::sleep(Duration::from_millis(300));
-        assert_eq!(read_heartbeat(&heartbeat), Some(stopped_at));
+        // SIGKILL can interrupt the test-only truncate-and-write heartbeat, leaving
+        // either the last value or an empty file. In both cases it must stay stable.
+        let stopped_at = read_heartbeat(&heartbeat);
+        for _ in 0..6 {
+            thread::sleep(Duration::from_millis(50));
+            assert_eq!(read_heartbeat(&heartbeat), stopped_at);
+        }
     }
 
     #[test]
