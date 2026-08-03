@@ -9,7 +9,7 @@ import {
 } from "pdfjs-dist/web/pdf_viewer.mjs";
 import { useI18n } from "./I18nProvider";
 import { type PDFDocumentProxy } from "./pdf";
-import { getPdfPageTextContent } from "./pdfText";
+import { cacheRenderedPdfPageText, joinPdfTextItems } from "./pdfText";
 import { type PageRotation } from "./usePagePlan";
 
 type PdfPageCanvasProps = {
@@ -86,7 +86,11 @@ export function PdfPageCanvas({
           annotationHost.style.setProperty("--total-scale-factor", String(viewport.scale));
           annotationHost.style.width = `${Math.floor(viewport.width)}px`;
           annotationHost.style.height = `${Math.floor(viewport.height)}px`;
-          const textContentPromise = getPdfPageTextContent(document, pageNumber, page);
+          textLayer = new TextLayer({
+            container,
+            textContentSource: page.streamTextContent(),
+            viewport
+          });
 
           const linkService = new SimpleLinkService({
             eventBus: new EventBus(),
@@ -149,17 +153,12 @@ export function PdfPageCanvas({
               }
             });
 
-          const textLayerPromise = textContentPromise.then((textContent) => {
-            if (!alive) {
-              return;
-            }
-            textLayer = new TextLayer({
-              container,
-              textContentSource: textContent,
-              viewport
-            });
-            return textLayer.render();
-          });
+          const textLayerPromise = textLayer.render();
+          cacheRenderedPdfPageText(
+            document,
+            pageNumber,
+            textLayerPromise.then(() => joinPdfTextItems(textLayer?.textContentItemsStr ?? []))
+          );
 
           return Promise.all([renderTask.promise, textLayerPromise, annotationPromise]).then(
             () => undefined

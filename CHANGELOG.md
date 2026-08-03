@@ -787,10 +787,10 @@ The project follows [Semantic Versioning](https://semver.org/).
 - Parallel Rust tests now allocate private temporary directories through one atomic,
   collision-resistant helper. This removes timestamp-resolution races observed on hosted
   macOS runners without weakening per-test clean-up or document isolation.
-- Native PDF text layers and document search now share one retryable text-content request
-  per source page. Evidence waits for the visible render before searching, avoiding the
-  second PDF.js stream rejected by WKWebView while retaining the final localised failure
-  state in hosted diagnostics.
+- Native PDF text layers now publish their completed streaming text into the retryable
+  per-source-page search cache. Evidence waits for the visible render before searching,
+  avoiding the second PDF.js stream rejected by WKWebView while retaining the final
+  localised failure state in hosted diagnostics.
 - Native PDF workspaces now keep their clear-job callback stable while inspection and
   publication snapshots change, preventing source-bound dialogs from closing during a
   review. The bookmark workspace also gives expanded printed-contents controls

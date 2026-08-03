@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { type PDFDocumentProxy } from "./pdf";
-import { extractPdfPageText, getPdfPageTextContent } from "./pdfText";
+import { getPdfPageText } from "./pdfText";
 import {
   classifyPdfSearchError,
   countPdfSearchOccurrences,
@@ -109,5 +109,5 @@ async function getPageText(
   document: PDFDocumentProxy,
   pageNumber: number
 ) {
-  return extractPdfPageText(await getPdfPageTextContent(document, pageNumber));
+  return getPdfPageText(document, pageNumber);
 }
