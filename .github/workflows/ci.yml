@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -35,11 +35,14 @@ jobs:
       - name: Audit distributable npm dependencies
         run: npm run security:audit-production
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install pinned RustSec auditor
+        run: cargo install cargo-audit --version 0.22.2 --locked
+
       - name: Audit locked Rust dependencies
-        uses: rustsec/audit-check@v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: src-tauri
+        run: npm run security:audit-rust
 
   check:
     name: Check (${{ matrix.os }})
@@ -54,7 +57,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Linux desktop dependencies
         if: runner.os == 'Linux'
@@ -70,7 +73,7 @@ jobs:
             xvfb
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
 
@@ -100,7 +103,7 @@ jobs:
 
       - name: Retain rendering-corpus evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rendering-corpus-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: warn
@@ -109,7 +112,7 @@ jobs:
 
       - name: Retain OCR-corpus evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ocr-corpus-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: warn
@@ -153,7 +156,7 @@ jobs:
 
       - name: Retain native end-to-end evidence
         if: always() && hashFiles('e2e-evidence/e2e-report-*.json') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-e2e-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: error

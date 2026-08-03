@@ -20,10 +20,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
 
@@ -36,11 +36,11 @@ jobs:
       - name: Audit distributable npm dependencies
         run: npm run security:audit-production
 
+      - name: Install pinned RustSec auditor
+        run: cargo install cargo-audit --version 0.22.2 --locked
+
       - name: Audit locked Rust dependencies
-        uses: rustsec/audit-check@v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: src-tauri
+        run: npm run security:audit-rust
 
       - name: Audit distributable source tree
         run: npm run release:source-check
@@ -63,7 +63,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Linux desktop and OCR dependencies
         if: runner.os == 'Linux'
@@ -85,7 +85,7 @@ jobs:
         run: brew install ghostscript tesseract-lang
 
       - name: Setup Python for OCRmyPDF
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -166,7 +166,7 @@ jobs:
           $ghostscriptBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -175,7 +175,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Java for veraPDF
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -200,7 +200,7 @@ jobs:
 
       - name: Retain release OCR-engine evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-ocr-engine-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: error
@@ -209,7 +209,7 @@ jobs:
 
       - name: Retain release PDF/A-engine evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-pdfa-engine-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: error
@@ -218,7 +218,7 @@ jobs:
 
       - name: Retain release certificate-engine evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-certificate-engine-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: error
@@ -258,7 +258,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Linux desktop dependencies
         if: runner.os == 'Linux'
@@ -276,7 +276,7 @@ jobs:
             xvfb
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -310,7 +310,7 @@ jobs:
 
       - name: Retain release native end-to-end evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-native-e2e-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: error
@@ -506,7 +506,7 @@ jobs:
 
       - name: Retain release rendering evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-rendering-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: warn
@@ -515,7 +515,7 @@ jobs:
 
       - name: Retain release OCR-corpus evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-ocr-corpus-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: warn
@@ -602,7 +602,7 @@ jobs:
           --signing-config src-tauri/platform-signing.release.conf.json
 
       - name: Retain release package evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-package-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: error
@@ -610,7 +610,7 @@ jobs:
           path: release-package-evidence/package-report-*.json
 
       - name: Retain bundles for release metadata
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-bundles-${{ runner.os }}
           if-no-files-found: error
@@ -626,16 +626,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
 
       - name: Download Linux release bundles
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: release-bundles-Linux
           path: release-linux-assets
@@ -644,7 +644,7 @@ jobs:
         run: npm run release:linux-install -- release-linux-assets release-linux-install-evidence
 
       - name: Retain Linux package installation evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-linux-install-evidence
           if-no-files-found: error
@@ -661,10 +661,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -684,7 +684,7 @@ jobs:
             npm run release:source-archive
 
       - name: Download platform bundles
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: release-bundles-*
           path: release-assets
@@ -715,42 +715,42 @@ jobs:
           cp release-updater/latest.json release-updater-evidence/latest.json
 
       - name: Download rendering-corpus evidence
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: release-rendering-*
           path: release-rendering-evidence
           merge-multiple: true
 
       - name: Download OCR-corpus evidence
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: release-ocr-corpus-*
           path: release-ocr-corpus-evidence
           merge-multiple: true
 
       - name: Download OCR-engine evidence
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: release-ocr-engine-*
           path: release-ocr-engine-evidence
           merge-multiple: true
 
       - name: Download PDF/A-engine evidence
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: release-pdfa-engine-*
           path: release-pdfa-engine-evidence
           merge-multiple: true
 
       - name: Download certificate-engine evidence
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: release-certificate-engine-*
           path: release-certificate-engine-evidence
           merge-multiple: true
 
       - name: Download native end-to-end evidence
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: release-native-e2e-*
           path: release-native-e2e-evidence
@@ -760,14 +760,14 @@ jobs:
         run: npm run e2e:verify-matrix
 
       - name: Download platform package evidence
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: release-package-*
           path: release-package-evidence
           merge-multiple: true
 
       - name: Download Linux package installation evidence
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: release-linux-install-evidence
           path: release-linux-install-evidence
@@ -787,7 +787,7 @@ jobs:
             npm run release:metadata -- release-assets release-metadata
 
       - name: Retain release metadata
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-metadata
           if-no-files-found: error
@@ -795,7 +795,7 @@ jobs:
           path: release-metadata/**
 
       - name: Retain signed updater evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-updater-evidence
           if-no-files-found: error
@@ -803,7 +803,7 @@ jobs:
           path: release-updater-evidence/**
 
       - name: Retain verified source archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-source
           if-no-files-found: error
@@ -811,7 +811,7 @@ jobs:
           path: artifacts/source-release/**
 
       - name: Retain rendering-corpus evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-rendering-evidence
           if-no-files-found: error
@@ -819,7 +819,7 @@ jobs:
           path: release-rendering-evidence/**
 
       - name: Retain OCR-corpus evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-ocr-corpus-evidence
           if-no-files-found: error
@@ -827,7 +827,7 @@ jobs:
           path: release-ocr-corpus-evidence/**
 
       - name: Retain OCR-engine evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-ocr-engine-evidence
           if-no-files-found: error
@@ -835,7 +835,7 @@ jobs:
           path: release-ocr-engine-evidence/**
 
       - name: Retain PDF/A-engine evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-pdfa-engine-evidence
           if-no-files-found: error
@@ -843,7 +843,7 @@ jobs:
           path: release-pdfa-engine-evidence/**
 
       - name: Retain certificate-engine evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-certificate-engine-evidence
           if-no-files-found: error
@@ -851,7 +851,7 @@ jobs:
           path: release-certificate-engine-evidence/**
 
       - name: Retain native end-to-end evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-native-e2e-evidence
           if-no-files-found: error
@@ -859,7 +859,7 @@ jobs:
           path: release-native-e2e-evidence/**
 
       - name: Retain verified package evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-package-evidence
           if-no-files-found: error

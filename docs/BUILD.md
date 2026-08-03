@@ -21,6 +21,19 @@ For a production build:
 npm run desktop:build
 ```
 
+Run the same fail-closed dependency checks used by CI with:
+
+```bash
+npm run security:audit-production
+cargo install cargo-audit --version 0.22.2 --locked
+npm run security:audit-rust
+```
+
+The Rust gate refreshes RustSec data, rejects every vulnerability or unreviewed warning,
+and requires every temporary exception to match its reviewed advisory, category,
+package, and exact locked version in `security/rustsec-policy.json`. Its review window
+cannot exceed 92 days and an expired policy fails the build.
+
 Generate the local PDF rendering fixtures when testing PDF.js layers:
 
 ```bash
@@ -48,7 +61,9 @@ npm run qa:ocr-corpus
 ```
 
 The CI workflow in `.github/workflows/ci.yml` checks the frontend, Tauri backend, and
-native application workflows on Windows, macOS, and Linux. Tagged builds create draft platform bundles and
+native application workflows on Windows, macOS, and Linux. Its action runtimes use the
+current Node 24 majors and Dependabot tracks action updates alongside npm and Cargo.
+Tagged builds create draft platform bundles and
 verify their native metadata, package structure, publisher identity, timestamp, and
 notarisation state. The credential-gated signing implementation is present; the first
 real certificate-backed run, Windows reputation review, representative installation,

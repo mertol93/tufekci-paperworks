@@ -58,8 +58,10 @@ const requiredPaths = [
   "scripts/check-apple-mobile.mjs",
   "scripts/check-apple-mobile-bundle.mjs",
   "scripts/check-production-e2e-boundary.mjs",
+  "scripts/check-rustsec-policy.mjs",
   "scripts/e2e-evidence.mjs",
   "scripts/generate-platform-signing-config.mjs",
+  "security/rustsec-policy.json",
   "src-tauri/Cargo.lock",
   "src-tauri/Cargo.toml",
   "src-tauri/Info.ios.plist",
@@ -80,6 +82,7 @@ const requiredPaths = [
   "tests/print.test.mjs",
   "tests/apple-mobile.test.mjs",
   "tests/runtime-capabilities.test.mjs",
+  "tests/rustsec-policy.test.mjs",
   "wdio.conf.mjs"
 ];
 const prohibitedPrefixes = [

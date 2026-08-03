@@ -746,7 +746,10 @@ bundles, including one universal macOS build for Intel and Apple Silicon. The pr
 release environment must provide the expected Windows publisher certificate, timestamp
 service, Apple Developer ID certificate, and App Store Connect notarisation credentials;
 missing or malformed credentials fail before packaging. CI audits the complete
-distributable npm and locked Rust dependency graphs, then audits the complete source
+distributable npm graph and applies an exact reviewed policy to every RustSec warning in
+the locked Rust graph; vulnerabilities, new warnings, changed package versions, and stale
+exceptions fail closed. Current Node 24 GitHub Action majors are tracked by Dependabot.
+CI then audits the complete source
 tree before building and
 rejects generated or private paths, unsupported file types, unsafe encodings, credential
 signatures, and personal home paths. Each native build also verifies its exact package

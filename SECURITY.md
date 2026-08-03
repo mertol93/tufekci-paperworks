@@ -648,10 +648,19 @@ release contract and must be updated when a boundary changes.
   Treat the licence report as a review inventory rather than legal advice, and keep
   package signing and notarisation as mandatory gates distinct from updater signatures.
 - Fail CI and tagged release preflight on any npm advisory reachable from distributable
-  dependencies or any RustSec vulnerability in the locked Cargo graph. Review
-  development-only npm findings and RustSec maintenance or soundness warnings separately,
-  keep affected tools pinned, and track both ecosystems with Dependabot until compatible
-  upstream fixes are available.
+  dependencies, any RustSec vulnerability, and any new or changed RustSec informational
+  warning in the locked Cargo graph. Run the pinned `cargo-audit` release directly and
+  require the machine-readable report to include notice, unmaintained, and unsound
+  categories. Limit every review window to 92 days and fail once it expires. Do not
+  delegate this boundary to an action that silently accepts future warning classes.
+- Keep every temporary RustSec exception in `security/rustsec-policy.json`, matched by
+  advisory ID, category, package, and exact locked version, with a bounded review reason.
+  Fail when an exception becomes stale so dependency upgrades remove their old policy at
+  the same time. The current archived GTK3 and rust-unic dependencies are inherited from
+  Tauri; the `glib::VariantStrIter` soundness exception is an explicit alpha-only risk
+  acceptance because Paperworks does not use the affected methods and Tauri's compatible
+  GTK3 line has no patched `glib` release. Remove or formally re-evaluate that exception
+  before a stable release. Track npm, Cargo, and GitHub Actions with Dependabot.
 - Keep publisher certificate containers, passwords, the temporary-keychain password,
   and the App Store Connect private key outside the repository and source archive.
   Supply them only to their matching runner through the protected `updater-signing`

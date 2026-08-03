@@ -31,12 +31,12 @@ jobs:
 
     steps:
       - name: Checkout the immutable release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.release_tag }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
 
@@ -135,7 +135,7 @@ jobs:
             update-promotion/published/latest.json
 
       - name: Retain promotion evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: update-promotion-${{ inputs.channel }}-${{ inputs.release_tag }}
           if-no-files-found: error

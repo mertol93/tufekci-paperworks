@@ -595,6 +595,11 @@ unchecked until the full user workflow is dependable.
 - [x] Tagged-release SHA-256 checksums, exact artefact manifest, npm and Cargo
   CycloneDX 1.5 SBOMs, and a combined dependency-licence declaration report with
   explicit manual-review flags and retained workflow evidence.
+- [x] Fail-closed dependency advisory policy: no distributable npm advisory or locked
+  Rust vulnerability is accepted; every RustSec informational warning must match its
+  reviewed advisory ID, category, package, and exact version; stale exceptions fail;
+  review windows expire within 92 days; `cargo-audit` is pinned; and current Node 24
+  action majors are tracked by Dependabot.
 - [x] Fail-closed signed-update infrastructure with explicit alpha, beta, and stable
   channels; user-triggered checks; mandatory signature verification; protected signing
   and promotion environments; strict immutable-manifest evidence; byte-verified channel
@@ -603,7 +608,7 @@ unchecked until the full user workflow is dependable.
 - [ ] First real credential-backed signed updater evidence across Windows, universal
   macOS, and Linux, followed by approved channel promotion, packaged update/restart
   testing, and a retained withdrawal plus higher-version rollback rehearsal.
-- [ ] End-to-end tests across the supported operating-system matrix. An eleven-case native
+- [x] End-to-end tests across the supported operating-system matrix. An eleven-case native
   Tauri/WebDriver suite now covers shell readiness, keyboard and modal focus, real PDF
   loading, page drag reordering plus structural operations, PDF.js pixels and search,
   native-reviewed page-text replacement with undo/redo and verified publication, and
@@ -613,9 +618,9 @@ unchecked until the full user workflow is dependable.
   exact-count flattening, export and reopen, and explicit Turkish/German interface
   switching across organiser, Split, Protect, Compression, Activity, and signed Updates
   with persisted locale and root-language checks. Windows x64 passes
-  locally; CI and tagged-release matrices now run Linux, macOS, and Windows and retain
-  strict path-free evidence. Keep this item open until the first complete hosted matrix
-  has passed and its retained reports have been reviewed.
+  locally; hosted desktop CI run `30774469317` passed Linux, macOS, and Windows with all
+  eleven native cases and strict path-free evidence retained for each platform. Tagged
+  releases repeat the same matrix before publication.
 - [x] Automated application accessibility baseline: document-editor skip navigation,
   high-contrast visible focus, a roving workflow tab set, labelled landmarks, and shared
   initial focus, Tab containment, safe Escape, and focus return for all thirteen modal

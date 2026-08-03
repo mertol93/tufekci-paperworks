@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "cargoAuditVersion": "0.22.2",
+  "reviewedOn": "2026-08-03",
+  "reviewBy": "2026-11-01",
+  "exemptions": [
+    {
+      "reason": "Tauri's Linux WebKitGTK runtime currently resolves the archived gtk-rs GTK3 bindings. There is no patched GTK3 line; remove these exemptions when Tauri's supported Linux runtime adopts maintained bindings.",
+      "advisories": [
+        {
+          "id": "RUSTSEC-2024-0413",
+          "kind": "unmaintained",
+          "package": "atk",
+          "version": "0.18.2"
+        },
+        {
+          "id": "RUSTSEC-2024-0416",
+          "kind": "unmaintained",
+          "package": "atk-sys",
+          "version": "0.18.2"
+        },
+        {
+          "id": "RUSTSEC-2024-0412",
+          "kind": "unmaintained",
+          "package": "gdk",
+          "version": "0.18.2"
+        },
+        {
+          "id": "RUSTSEC-2024-0418",
+          "kind": "unmaintained",
+          "package": "gdk-sys",
+          "version": "0.18.2"
+        },
+        {
+          "id": "RUSTSEC-2024-0411",
+          "kind": "unmaintained",
+          "package": "gdkwayland-sys",
+          "version": "0.18.2"
+        },
+        {
+          "id": "RUSTSEC-2024-0417",
+          "kind": "unmaintained",
+          "package": "gdkx11",
+          "version": "0.18.2"
+        },
+        {
+          "id": "RUSTSEC-2024-0414",
+          "kind": "unmaintained",
+          "package": "gdkx11-sys",
+          "version": "0.18.2"
+        },
+        {
+          "id": "RUSTSEC-2024-0415",
+          "kind": "unmaintained",
+          "package": "gtk",
+          "version": "0.18.2"
+        },
+        {
+          "id": "RUSTSEC-2024-0420",
+          "kind": "unmaintained",
+          "package": "gtk-sys",
+          "version": "0.18.2"
+        },
+        {
+          "id": "RUSTSEC-2024-0419",
+          "kind": "unmaintained",
+          "package": "gtk3-macros",
+          "version": "0.18.2"
+        }
+      ]
+    },
+    {
+      "reason": "This compile-time macro dependency is inherited through Tauri's GTK3 bindings rather than application runtime code, and leaves with that upstream stack.",
+      "advisories": [
+        {
+          "id": "RUSTSEC-2024-0370",
+          "kind": "unmaintained",
+          "package": "proc-macro-error",
+          "version": "1.0.4"
+        }
+      ]
+    },
+    {
+      "reason": "Tauri's URL-pattern dependency resolves these unmaintained rust-unic identifier crates. Keep only these exact locked versions reviewed until Tauri adopts a maintained dependency.",
+      "advisories": [
+        {
+          "id": "RUSTSEC-2025-0081",
+          "kind": "unmaintained",
+          "package": "unic-char-property",
+          "version": "0.9.0"
+        },
+        {
+          "id": "RUSTSEC-2025-0075",
+          "kind": "unmaintained",
+          "package": "unic-char-range",
+          "version": "0.9.0"
+        },
+        {
+          "id": "RUSTSEC-2025-0080",
+          "kind": "unmaintained",
+          "package": "unic-common",
+          "version": "0.9.0"
+        },
+        {
+          "id": "RUSTSEC-2025-0100",
+          "kind": "unmaintained",
+          "package": "unic-ucd-ident",
+          "version": "0.9.0"
+        },
+        {
+          "id": "RUSTSEC-2025-0098",
+          "kind": "unmaintained",
+          "package": "unic-ucd-version",
+          "version": "0.9.0"
+        }
+      ]
+    },
+    {
+      "reason": "The affected VariantStrIter methods are not used by Paperworks code. glib 0.18.5 is inherited through Tauri's Linux WebKitGTK stack and has no compatible patched 0.18 release, so this remains an explicit alpha risk acceptance reviewed on every Tauri update.",
+      "advisories": [
+        {
+          "id": "RUSTSEC-2024-0429",
+          "kind": "unsound",
+          "package": "glib",
+          "version": "0.18.5"
+        }
+      ]
+    }
+  ]
+}

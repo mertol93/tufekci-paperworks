@@ -8,6 +8,12 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A fail-closed Rust dependency advisory policy. CI and tagged release preflight now run
+  pinned `cargo-audit` directly, reject every vulnerability and every new or changed
+  informational warning, and require temporary exemptions to match an exact reviewed
+  advisory, category, package, and locked version. Stale or 92-day-expired exemptions
+  fail too. GitHub workflows now use current Node 24 action majors and Dependabot tracks
+  action updates.
 - An experimental iPhone and iPad build foundation for iOS/iPadOS 16 and newer. The
   shared Tauri mobile entry point now exposes a typed runtime capability contract;
   React gates desktop-only controls; Rust rejects unsupported OCR, PDF/A, certificate,
