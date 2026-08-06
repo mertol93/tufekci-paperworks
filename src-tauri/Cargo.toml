@@ -18,7 +18,7 @@ e2e = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-aes-gcm = { version = "0.10.3", features = ["zeroize"] }
+aes-gcm = { version = "0.11.0", features = ["zeroize"] }
 argon2 = "0.5.3"
 base64 = "0.22"
 image = { version = "0.25.10", default-features = false, features = ["bmp", "gif", "jpeg", "png", "pnm", "tiff", "webp"] }
